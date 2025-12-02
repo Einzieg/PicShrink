@@ -94,7 +94,8 @@ const App: React.FC = () => {
             if (item.status === 'completed' || item.status === 'error') {
                // Revoke old URL to avoid memory leaks
                if (item.result?.previewUrl) URL.revokeObjectURL(item.result.previewUrl);
-               return { ...item, status: 'pending', result: undefined };
+               // Fix: result must be null, not undefined, to match BatchItem interface
+               return { ...item, status: 'pending', result: null };
             }
             return item;
          }));
