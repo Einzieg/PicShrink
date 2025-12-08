@@ -16,9 +16,13 @@ const BatchResultView: React.FC<BatchResultViewProps> = ({ items, isProcessing, 
   const completedItems = items.filter(i => i.status === 'completed' && i.result);
   const totalOriginalSize = completedItems.reduce((acc, curr) => acc + (curr.result?.originalSize || 0), 0);
   const totalCompressedSize = completedItems.reduce((acc, curr) => acc + (curr.result?.compressedSize || 0), 0);
+  
+  // Only show savings if we are actually saving space (mostly for compression)
   const totalSavings = totalOriginalSize > 0 
     ? ((totalOriginalSize - totalCompressedSize) / totalOriginalSize) * 100 
     : 0;
+  
+  const showSavings = totalSavings > 0;
 
   const handleDownloadAll = async () => {
     if (completedItems.length === 0) return;
@@ -40,7 +44,7 @@ const BatchResultView: React.FC<BatchResultViewProps> = ({ items, isProcessing, 
       // Trigger download
       const link = document.createElement('a');
       link.href = URL.createObjectURL(content);
-      link.download = `pics_compressed_${new Date().getTime()}.zip`;
+      link.download = `imgtools_processed_${new Date().getTime()}.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -59,14 +63,14 @@ const BatchResultView: React.FC<BatchResultViewProps> = ({ items, isProcessing, 
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
         <div className="flex gap-8 text-center md:text-left">
           <div>
-            <p className="text-xs text-slate-400 font-semibold uppercase">总原始大小</p>
+            <p className="text-xs text-slate-400 font-semibold uppercase">原始总大小</p>
             <p className="text-xl font-bold text-slate-800">{formatBytes(totalOriginalSize)}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-400 font-semibold uppercase">压缩后总大小</p>
+            <p className="text-xs text-slate-400 font-semibold uppercase">处理后大小</p>
             <div className="flex items-center gap-2">
               <p className="text-xl font-bold text-indigo-600">{formatBytes(totalCompressedSize)}</p>
-              {totalSavings > 0 && (
+              {showSavings && (
                 <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
                   -{totalSavings.toFixed(1)}%
                 </span>
@@ -140,7 +144,7 @@ const BatchResultView: React.FC<BatchResultViewProps> = ({ items, isProcessing, 
                    </>
                  )}
                  {item.status === 'error' && (
-                   <span className="text-xs text-red-500">失败</span>
+                   <span className="text-xs text-red-500">处理失败</span>
                  )}
               </div>
             </div>

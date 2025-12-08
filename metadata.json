@@ -1,5 +1,5 @@
 {
-  "name": "图缩大师",
-  "description": "一款智能的客户端图片压缩工具，允许您精确定义上传图片的目标文件大小。",
+  "name": "Img-Tools",
+  "description": "多功能图片处理工具箱：智能压缩、格式转换、MD5修改。",
   "requestFramePermissions": []
 }

@@ -1,4 +1,4 @@
-import { CompressionSettings } from '../types';
+import { ProcessingSettings } from '../types';
 
 /**
  * Loads an image file into an HTMLImageElement
@@ -13,12 +13,11 @@ const loadImage = (file: File): Promise<HTMLImageElement> => {
 };
 
 /**
- * Smart compression algorithm that iteratively adjusts quality and dimensions
- * to fit within a target file size.
+ * Main processing function that handles Compression, Conversion, and MD5 Modification
  */
-export const compressImage = async (
+export const processImage = async (
   file: File, 
-  settings: CompressionSettings
+  settings: ProcessingSettings
 ): Promise<File> => {
   const image = await loadImage(file);
   const canvas = document.createElement('canvas');
@@ -28,8 +27,8 @@ export const compressImage = async (
 
   let { width, height } = image;
   
-  // Initial resize logic (aspect ratio preservation)
-  if (settings.maxWidthOrHeight > 0 && (width > settings.maxWidthOrHeight || height > settings.maxWidthOrHeight)) {
+  // 1. Resize Logic (Only for compression mode usually, or if max dims set)
+  if (settings.tool === 'compress' && settings.maxWidthOrHeight > 0 && (width > settings.maxWidthOrHeight || height > settings.maxWidthOrHeight)) {
     const ratio = width / height;
     if (ratio > 1) {
       width = settings.maxWidthOrHeight;
@@ -43,66 +42,96 @@ export const compressImage = async (
   canvas.width = width;
   canvas.height = height;
 
-  // Draw image to canvas (white background for JPEGs to avoid black transparency)
+  // Draw image to canvas (white background for JPEGs)
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
   ctx.drawImage(image, 0, 0, width, height);
 
-  // Binary search implementation for Quality
-  // We want the highest quality that fits under the maxSizeKB
-  let minQuality = 0.1;
-  let maxQuality = 1.0;
-  let optimalBlob: Blob | null = null;
-  let iteration = 0;
-  
-  // Target bytes
-  const targetBytes = settings.maxSizeKB * 1024;
+  // 2. MD5 Modification Logic
+  if (settings.tool === 'md5') {
+    // To ensure MD5 changes, we modify a single pixel very slightly.
+    // Re-encoding via canvas usually changes MD5 anyway, but this guarantees uniqueness
+    // even if the re-encoding is identical.
+    const imageData = ctx.getImageData(0, 0, 1, 1);
+    const data = imageData.data;
+    // Tweak the red channel of the first pixel by 1 value
+    // This is invisible to the human eye
+    if (data[0] < 255) {
+      data[0] += 1;
+    } else {
+      data[0] -= 1;
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }
 
-  const toBlob = (q: number): Promise<Blob | null> => {
-    return new Promise(resolve => canvas.toBlob(resolve, settings.format, q));
+  const toBlob = (q: number, type: string): Promise<Blob | null> => {
+    return new Promise(resolve => canvas.toBlob(resolve, type, q));
   };
 
-  // If the user wants PNG, quality parameter often ignored by browsers or works differently.
-  // For this tool, we default to JPEG/WebP for compression unless strictly required, 
-  // but if input is PNG and user forces PNG, size reduction comes purely from resizing.
-  if (settings.format === 'image/png') {
-    const blob = await toBlob(1);
-    if (!blob) throw new Error('Compression failed');
-    return new File([blob], file.name, { type: settings.format, lastModified: Date.now() });
-  }
+  let outputBlob: Blob | null = null;
+  const targetFormat = settings.format; // User selected format
 
-  // Iterative approach for JPEG/WebP
-  while (iteration < 10) { // Max 10 iterations to prevent infinite loops
-    const currentQuality = (minQuality + maxQuality) / 2;
-    const blob = await toBlob(currentQuality);
-
-    if (!blob) break;
-
-    if (blob.size <= targetBytes) {
-      optimalBlob = blob;
-      minQuality = currentQuality; // Try for better quality
-    } else {
-      maxQuality = currentQuality; // Needs lower quality
-    }
-
-    // If gap is small enough, stop
-    if (maxQuality - minQuality < 0.05) break;
+  // 3. Process based on Tool Type
+  if (settings.tool === 'compress') {
+    // --- Compression Logic ---
+    const targetBytes = settings.maxSizeKB * 1024;
     
-    iteration++;
+    // For PNG, quality param is ignored in standard toBlob, so we just export.
+    // If user wants PNG compression, it's mostly about resizing done above.
+    if (targetFormat === 'image/png') {
+      outputBlob = await toBlob(1, targetFormat);
+    } else {
+      // Iterative JPEG/WebP compression
+      let minQuality = 0.1;
+      let maxQuality = 1.0;
+      let iteration = 0;
+
+      while (iteration < 10) {
+        const currentQuality = (minQuality + maxQuality) / 2;
+        const blob = await toBlob(currentQuality, targetFormat);
+
+        if (!blob) break;
+
+        if (blob.size <= targetBytes) {
+          outputBlob = blob;
+          minQuality = currentQuality;
+        } else {
+          maxQuality = currentQuality;
+        }
+        if (maxQuality - minQuality < 0.05) break;
+        iteration++;
+      }
+      
+      // Fallback
+      if (!outputBlob) outputBlob = await toBlob(0.5, targetFormat); 
+    }
+  } else if (settings.tool === 'convert') {
+    // --- Conversion Logic ---
+    // Just export as target format with high quality
+    outputBlob = await toBlob(0.92, targetFormat);
+  } else if (settings.tool === 'md5') {
+    // --- MD5 Logic ---
+    // Export using the original format if possible, or default to JPEG if original is unknown to canvas
+    // But settings.format tracks the user preference or we can infer.
+    // For MD5 tool, usually we want to keep the same format or convert.
+    // Let's use settings.format which defaults to 'image/jpeg' but should probably match input if possible in UI.
+    // For now, use the selected format in settings.
+    outputBlob = await toBlob(0.95, targetFormat);
   }
 
-  // Fallback: if even lowest quality is too big, we might return the lowest quality blob 
-  // or (in a more advanced version) recursively resize down.
-  // For this scope, we return the best found.
-  if (!optimalBlob) {
-    // If we couldn't find a fit, try the absolute minimum
-    optimalBlob = await toBlob(0.1);
-  }
+  if (!outputBlob) throw new Error('Processing failed');
 
-  if (!optimalBlob) throw new Error('Could not compress image');
+  // Determine file extension
+  let ext = 'jpg';
+  if (outputBlob.type === 'image/png') ext = 'png';
+  if (outputBlob.type === 'image/webp') ext = 'webp';
 
-  return new File([optimalBlob], file.name.replace(/\.[^/.]+$/, "") + "_compressed.jpg", {
-    type: settings.format,
+  // Construct new filename
+  const originalName = file.name.substring(0, file.name.lastIndexOf('.'));
+  const suffix = settings.tool === 'md5' ? '_md5' : (settings.tool === 'compress' ? '_min' : '_new');
+  
+  return new File([outputBlob], `${originalName}${suffix}.${ext}`, {
+    type: outputBlob.type,
     lastModified: Date.now(),
   });
 };
