@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import JSZip from 'jszip';
 import { BatchItem } from '../types';
-import { DownloadIcon, RefreshIcon } from './Icons';
+import { DownloadIcon, RefreshIcon, EyeIcon, XIcon } from './Icons';
 import { formatBytes } from '../utils/imageCompressor';
 
 interface BatchResultViewProps {
@@ -12,6 +13,7 @@ interface BatchResultViewProps {
 
 const BatchResultView: React.FC<BatchResultViewProps> = ({ items, isProcessing, onReset }) => {
   const [isZipping, setIsZipping] = useState(false);
+  const [previewItem, setPreviewItem] = useState<BatchItem | null>(null);
 
   const completedItems = items.filter(i => i.status === 'completed' && i.result);
   const totalOriginalSize = completedItems.reduce((acc, curr) => acc + (curr.result?.originalSize || 0), 0);
@@ -55,6 +57,17 @@ const BatchResultView: React.FC<BatchResultViewProps> = ({ items, isProcessing, 
     } finally {
       setIsZipping(false);
     }
+  };
+
+  const handleDownloadSingle = (item: BatchItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!item.result) return;
+    const link = document.createElement('a');
+    link.href = item.result.previewUrl;
+    link.download = item.result.file.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -115,11 +128,20 @@ const BatchResultView: React.FC<BatchResultViewProps> = ({ items, isProcessing, 
       {/* Grid List */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {items.map((item) => (
-          <div key={item.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 transition-all hover:shadow-md">
+          <div 
+            key={item.id} 
+            className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 transition-all hover:shadow-md cursor-pointer group"
+            onClick={() => item.status === 'completed' && setPreviewItem(item)}
+          >
             {/* Thumbnail */}
-            <div className="w-16 h-16 shrink-0 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-200">
+            <div className="w-16 h-16 shrink-0 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-200 relative">
                {item.result ? (
-                 <img src={item.result.previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                 <>
+                   <img src={item.result.previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                   <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <EyeIcon className="w-6 h-6 text-white drop-shadow-sm" />
+                   </div>
+                 </>
                ) : (
                  <div className="text-xs text-slate-400">...</div>
                )}
@@ -149,19 +171,73 @@ const BatchResultView: React.FC<BatchResultViewProps> = ({ items, isProcessing, 
               </div>
             </div>
 
-            {/* Status Icon */}
-            <div className="shrink-0">
+            {/* Actions */}
+            <div className="shrink-0 flex items-center gap-2">
               {item.status === 'completed' && (
-                <div className="w-8 h-8 rounded-full bg-green-50 text-green-600 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </div>
+                <button 
+                  onClick={(e) => handleDownloadSingle(item, e)}
+                  className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                  title="下载单张"
+                >
+                  <DownloadIcon className="w-5 h-5" />
+                </button>
               )}
             </div>
           </div>
         ))}
       </div>
+
+      {/* Preview Modal */}
+      {previewItem && previewItem.result && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in" onClick={() => setPreviewItem(null)}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-zoom-in" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+               <div>
+                  <h3 className="font-bold text-slate-800 text-lg">{previewItem.originalFile.name}</h3>
+                  <p className="text-xs text-slate-500">
+                    {formatBytes(previewItem.result.compressedSize)} • {previewItem.result.file.type.split('/')[1].toUpperCase()}
+                  </p>
+               </div>
+               <button 
+                 onClick={() => setPreviewItem(null)}
+                 className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+               >
+                 <XIcon className="w-6 h-6 text-slate-500" />
+               </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-auto bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTAgMGgxMHYxMEgwem0xMCAxMGgxMHYxMEgxMHoiIGZpbGw9IiNmMmYyZjIiIGZpbGwtb3BhY2l0eT0iMC40Ii8+PC9zdmc+')] bg-gray-50 flex items-center justify-center p-4 min-h-[300px]">
+               <img 
+                 src={previewItem.result.previewUrl} 
+                 alt="Preview Full" 
+                 className="max-w-full max-h-[70vh] object-contain shadow-lg rounded-lg"
+               />
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-end gap-3">
+               <button 
+                  onClick={() => setPreviewItem(null)}
+                  className="px-5 py-2 rounded-xl text-slate-600 font-medium hover:bg-slate-50 transition-colors"
+               >
+                  关闭
+               </button>
+               <button 
+                  onClick={(e) => {
+                    handleDownloadSingle(previewItem, e);
+                    setPreviewItem(null);
+                  }}
+                  className="px-6 py-2 rounded-xl bg-indigo-600 text-white font-medium shadow-md shadow-indigo-200 hover:bg-indigo-700 transition-colors flex items-center gap-2"
+               >
+                  <DownloadIcon className="w-4 h-4" />
+                  下载此图
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

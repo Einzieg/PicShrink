@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import FileUploader from './components/FileUploader';
 import ControlPanel from './components/ControlPanel';
@@ -17,7 +18,20 @@ const App: React.FC = () => {
     tool: 'compress',
     maxSizeKB: 250,
     maxWidthOrHeight: 0,
-    format: 'image/jpeg'
+    format: 'image/jpeg',
+    
+    // Defaults for new tools
+    resizeMode: 'dimensions',
+    resizeWidth: 0,
+    resizeHeight: 0,
+    resizePercentage: 50,
+    maintainAspectRatio: true,
+    
+    cropRatio: 'original',
+    
+    rotateAngle: 0,
+    flipHorizontal: false,
+    flipVertical: false
   });
 
   // When tool changes, reset state and update settings tool type
@@ -138,6 +152,9 @@ const App: React.FC = () => {
       case 'compress': return '智能批量压缩';
       case 'convert': return '万能格式转换';
       case 'md5': return 'MD5 唯一化处理';
+      case 'resize': return '批量修改尺寸';
+      case 'crop': return '智能图片裁剪';
+      case 'rotate': return '图片旋转翻转';
     }
   };
 
@@ -145,7 +162,10 @@ const App: React.FC = () => {
     switch(activeTool) {
       case 'compress': return '在保持画质的前提下，将体积压缩到极致。';
       case 'convert': return '支持 JPG, PNG, WebP 等主流格式的一键互转。';
-      case 'md5': return '通过微调图像数据，生成全新的文件 MD5 哈希值，防止查重。';
+      case 'md5': return '通过微调图像数据，生成全新的文件 MD5 哈希值。';
+      case 'resize': return '按像素或百分比调整图片大小，支持保持长宽比。';
+      case 'crop': return '批量裁剪图片为 1:1、16:9 等常用比例。';
+      case 'rotate': return '一键旋转图片方向，或进行水平/垂直镜像翻转。';
     }
   };
 
@@ -164,7 +184,7 @@ const App: React.FC = () => {
             <div className="max-w-2xl mx-auto animate-fade-in-up mt-10 lg:mt-20">
               <div className="text-center mb-12">
                 <span className="inline-block py-1 px-3 rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold uppercase tracking-wide mb-4">
-                   {activeTool === 'md5' ? 'Anti-Duplicate' : 'Img-Tools'}
+                   Img-Tools Toolbox
                 </span>
                 <h2 className="text-4xl font-extrabold text-slate-900 sm:text-5xl mb-6 tracking-tight">
                   {getToolTitle()}

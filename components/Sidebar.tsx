@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { ToolType } from '../types';
-import { DownloadIcon, RefreshIcon, MagicIcon, HashIcon, ImageIcon } from './Icons';
+import { DownloadIcon, RefreshIcon, HashIcon, ImageIcon, ResizeIcon, CropIcon, RotateIcon } from './Icons';
 
 interface SidebarProps {
   activeTool: ToolType;
@@ -13,19 +14,37 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool }) => {
       id: 'compress', 
       label: '智能压缩', 
       icon: <DownloadIcon className="w-5 h-5" />,
-      desc: '自定义大小限制，批量压缩'
+      desc: '自定义大小限制'
+    },
+    { 
+      id: 'resize', 
+      label: '修改尺寸', 
+      icon: <ResizeIcon className="w-5 h-5" />,
+      desc: '调整宽高/百分比'
+    },
+    { 
+      id: 'crop', 
+      label: '图片裁剪', 
+      icon: <CropIcon className="w-5 h-5" />,
+      desc: '常用比例裁剪'
+    },
+    { 
+      id: 'rotate', 
+      label: '旋转翻转', 
+      icon: <RotateIcon className="w-5 h-5" />,
+      desc: '90°旋转与镜像'
     },
     { 
       id: 'convert', 
       label: '格式转换', 
       icon: <RefreshIcon className="w-5 h-5" />,
-      desc: 'JPG/PNG/WebP 互转'
+      desc: '格式互转'
     },
     { 
       id: 'md5', 
       label: 'MD5 修改', 
       icon: <HashIcon className="w-5 h-5" />,
-      desc: '微调像素，生成唯一Hash'
+      desc: '生成唯一Hash'
     },
   ];
 
@@ -71,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTool, onSelectTool }) => {
 
       {/* Footer Info */}
       <div className="p-4 text-xs text-slate-400 text-center border-t border-slate-100 hidden lg:block">
-        v2.0.0 • 纯本地处理
+        v2.1.0 • 纯本地处理
       </div>
     </div>
   );

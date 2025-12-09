@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 import { UploadIcon } from './Icons';
 
@@ -75,10 +76,10 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFileSelect }) => {
       </div>
       
       <h3 className="text-xl font-semibold text-slate-800 mb-2">
-        批量上传图片
+        点击或拖拽上传图片
       </h3>
       <p className="text-slate-500 max-w-xs mx-auto">
-        点击或拖拽多张图片至此 <br/>
+        支持批量处理 <br/>
         <span className="text-sm text-slate-400 mt-1 block">支持 JPG, PNG, WebP</span>
       </p>
     </div>
